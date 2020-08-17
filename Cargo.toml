@@ -35,4 +35,4 @@ bytes = "*"
 
 [dependencies.filecoin-proofs-api]
 package = "filecoin-proofs-api"
-version = "4.0.0"
+version = "5.0.0"
