@@ -99,16 +99,17 @@ pub async fn seal_commit_phase2(
         bytes.extend_from_slice(&item?);
     }
 
+    let data_len = bytes.len();
     let data: SealCommitPhase2Data = serde_json::from_slice(bytes.as_ref())?;
-    trace!("seal_commit_phase2: {:?}", data);
+    trace!("seal_commit_phase2, data len: {}", data_len);
 
     let (tx, rx) = channel();
     let handle: JoinHandle<()> = thread::spawn(move || {
         let r = seal::seal_commit_phase2(data.phase1_output.clone(), data.prover_id, data.sector_id);
 
-        trace!("seal_commit_phase2 finished: {:?}", r);
+        trace!("seal_commit_phase2 finished");
         if let Err(e) = tx.send(json!(r.map_err(|e| format!("{:?}", e)))) {
-            error!("{:?}", e);
+            error!("seal_commit_phase2 error: {:?}", e);
         }
     });
 

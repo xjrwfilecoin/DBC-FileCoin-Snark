@@ -35,7 +35,7 @@ pub async fn test_polling(state: Data<Arc<Mutex<ServState>>>) -> HttpResponse {
 }
 
 pub async fn query_state(state: Data<Arc<Mutex<ServState>>>, token: Json<u64>) -> HttpResponse {
-    trace!("query_state");
+    trace!("query_state: {:?}", token);
 
     let response = state.lock().unwrap().get(*token);
 
@@ -43,7 +43,7 @@ pub async fn query_state(state: Data<Arc<Mutex<ServState>>>, token: Json<u64>) -
 }
 
 pub async fn remove_job(state: Data<Arc<Mutex<ServState>>>, token: Json<u64>) -> HttpResponse {
-    trace!("remove_job");
+    trace!("remove_job: {:?}", token);
 
     let response = state.lock().unwrap().remove(*token);
 
