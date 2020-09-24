@@ -1,11 +1,9 @@
 use std::env;
 use std::sync::{Arc, Mutex};
-
 // use actix_web::FromRequest;
 use actix_web::{error, middleware, web};
 use actix_web::{App, HttpRequest, HttpResponse, HttpServer};
 use log::{error, warn};
-
 // use crate::seal_data::SealCommitPhase2Data;
 use polling::ServState;
 
@@ -38,19 +36,19 @@ async fn main() -> std::io::Result<()> {
 
     if std::env::var("RUST_LOG").is_err() {
         if cfg!(debug_assertions) {
-            std::env::set_var("RUST_LOG", "filecoin_webapi=trace,actix_web=info");
+            std::env::set_var("RUST_LOG", "filecoin_webapi=trace,actix_web=debug");
         } else {
-            std::env::set_var("RUST_LOG", "filecoin_webapi=info,actix_web=warn");
+            std::env::set_var("RUST_LOG", "filecoin_webapi=debug,actix_web=info");
         }
     }
 
-    fil_logger::init();
+    env_logger::init();
     std::fs::create_dir_all("/tmp/upload/")?;
     let state = Arc::new(Mutex::new(ServState::new()));
 
     warn!("Listening: {}", bind_address);
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         let state = state.clone();
 
         App::new()
@@ -92,9 +90,8 @@ async fn main() -> std::io::Result<()> {
             )
             .service(web::resource("/seal/add_piece").route(web::post().to(seal::add_piece)))
             .service(web::resource("/seal/write_and_preprocess").route(web::post().to(seal::write_and_preprocess)))
-    })
-    .bind(bind_address)
-    .expect("Bind failed")
-    .run()
-    .await
+    });
+
+    let server = server.bind(bind_address);
+    server.expect("Bind failed").run().await
 }

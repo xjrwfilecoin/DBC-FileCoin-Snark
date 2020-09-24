@@ -25,13 +25,14 @@ futures = "*"
 futures-core = "*"
 futures-util = "*"
 log = "*"
-fil_logger = "*"
-serde = { version = "1.0.104", features = ["derive"] }
+env_logger = "*"
+serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 mime = "*"
 lazy_static = "*"
 libc = "*"
 bytes = "*"
+clap = "*"
 
 [dependencies.filecoin-proofs-api]
 package = "filecoin-proofs-api"

@@ -1,7 +1,7 @@
 use actix_web::web::Json;
 use actix_web::{HttpRequest, HttpResponse};
 use filecoin_proofs_api::post;
-use log::trace;
+use log::*;
 
 use crate::post_data::*;
 

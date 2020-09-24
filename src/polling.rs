@@ -5,9 +5,9 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread::JoinHandle;
 
 use libc::pthread_cancel;
+use log::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use log::trace;
 
 use lazy_static::lazy_static;
 
@@ -54,7 +54,6 @@ impl ServState {
         PollingState::Started(token)
     }
 
-    // TODO: remove if not query after long time
     pub fn get(&mut self, token: u64) -> PollingState {
         let state = self
             .workers
@@ -68,7 +67,7 @@ impl ServState {
 
         match &state {
             PollingState::Done(_) => {
-                trace!("Job {} removed dut to finish", token);
+                debug!("Job {} removed dut to finish", token);
                 self.workers.remove(&token);
             }
             _ => {}
@@ -79,7 +78,7 @@ impl ServState {
 
     pub fn remove(&mut self, token: u64) -> PollingState {
         if let Some((handle, _rx)) = self.workers.remove(&token) {
-            trace!("Job {} force removed", token);
+            debug!("Job {} force removed", token);
             let pthread_t = handle.into_pthread_t();
 
             unsafe {
