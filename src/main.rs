@@ -57,6 +57,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::resource("/test").route(web::get().to(system::test)))
             .service(web::resource("/sys/test_polling").route(web::post().to(system::test_polling)))
             .service(web::resource("/sys/query_state").route(web::post().to(system::query_state)))
+            .service(web::resource("/sys/query_load").route(web::post().to(system::query_load)))
             .service(web::resource("/sys/remove_job").route(web::post().to(system::remove_job)))
             .service(web::resource("/sys/upload_file").route(web::post().to(system::upload_file)))
             .service(web::resource("/sys/upload_test").route(web::get().to(system::upload_test)))

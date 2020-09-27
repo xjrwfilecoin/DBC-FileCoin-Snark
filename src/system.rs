@@ -1,17 +1,23 @@
+use crate::polling::*;
+use actix_multipart::Multipart;
+use actix_web::web::{self, Data, Json};
+use actix_web::{Error, HttpResponse};
+use futures::stream::{StreamExt, TryStreamExt};
+use log::trace;
+use serde::Serialize;
+use serde_json::json;
 use std::io::Write;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use actix_multipart::Multipart;
-use actix_web::web::{self, Data, Json};
-use actix_web::{Error, HttpResponse};
-use futures::stream::{StreamExt, TryStreamExt};
-use log::trace;
-use serde_json::json;
-
-use crate::polling::*;
+#[derive(Serialize)]
+struct ServerLoad {
+    phase: String,
+    limit: u64,
+    current: u64,
+}
 
 pub async fn test() -> HttpResponse {
     trace!("test");
@@ -32,6 +38,18 @@ pub async fn test_polling(state: Data<Arc<Mutex<ServState>>>) -> HttpResponse {
 
     let response = state.lock().unwrap().enqueue(handle, rx);
     HttpResponse::Ok().json(response)
+}
+
+pub async fn query_load(phase: Json<String>) -> HttpResponse {
+    trace!("query_load: {:?}", phase);
+
+    let data = ServerLoad {
+        phase: "C2".to_string(),
+        limit: 5,
+        current: 3,
+    };
+
+    HttpResponse::Ok().json(data)
 }
 
 pub async fn query_state(state: Data<Arc<Mutex<ServState>>>, token: Json<u64>) -> HttpResponse {
