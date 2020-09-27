@@ -5,8 +5,10 @@ use actix_web::{error, middleware, web};
 use actix_web::{App, HttpRequest, HttpResponse, HttpServer};
 use log::{error, warn};
 // use crate::seal_data::SealCommitPhase2Data;
+use crate::mid::verify::Verify;
 use polling::ServState;
 
+mod mid;
 mod polling;
 pub mod post;
 pub mod post_data;
@@ -54,6 +56,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(state))
             .wrap(middleware::Logger::default())
+            .wrap(Verify {})
             .service(web::resource("/test").route(web::get().to(system::test)))
             .service(web::resource("/sys/test_polling").route(web::post().to(system::test_polling)))
             .service(web::resource("/sys/query_state").route(web::post().to(system::query_state)))
