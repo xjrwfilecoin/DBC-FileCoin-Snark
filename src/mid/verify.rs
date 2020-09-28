@@ -1,8 +1,10 @@
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
-use actix_web::{http, Error, HttpResponse};
+use actix_web::http::HeaderValue;
+use actix_web::{Error, HttpResponse};
 use futures::future::{ok, Either, Ready};
 use futures::task::{Context, Poll};
 use log::*;
+use std::env;
 
 pub struct Verify;
 
@@ -45,19 +47,22 @@ where
         let allow = "/test";
         let path = req.path();
 
-        Either::Left(self.service.call(req))
-        // if path == allow || req.get_identity().is_some() {
-        //     // allow
-        //     Either::Left(self.service.call(req))
-        // } else {
-        //     // deny
-        //     warn!("Verify failed");
-        //     Either::Right(ok(req.into_response(
-        //         HttpResponse::Found()
-        //             .header(http::header::LOCATION, allow)
-        //             .finish()
-        //             .into_body(),
-        //     )))
-        // }
+        let token = req
+            .headers()
+            .get("Authorization")
+            .map(|x| check_token(x))
+            .unwrap_or(false);
+
+        if token || env::var("WEBAPI_NO_AUTH").is_ok() || path == allow {
+            Either::Left(self.service.call(req))
+        } else {
+            Either::Right(ok(req.into_response(HttpResponse::Forbidden().finish().into_body())))
+        }
     }
+}
+
+fn check_token(token: &HeaderValue) -> bool {
+    trace!("checking token {:?}", token.as_bytes());
+
+    true
 }
