@@ -4,7 +4,6 @@ use actix_web::{Error, HttpResponse};
 use futures::future::{ok, Either, Ready};
 use futures::task::{Context, Poll};
 use log::*;
-use std::env;
 
 pub struct Verify;
 
@@ -53,7 +52,7 @@ where
             .map(|x| check_token(x))
             .unwrap_or(false);
 
-        if token || env::var("WEBAPI_NO_AUTH").is_ok() || path == allow {
+        if token || path == allow {
             Either::Left(self.service.call(req))
         } else {
             Either::Right(ok(req.into_response(HttpResponse::Forbidden().finish().into_body())))

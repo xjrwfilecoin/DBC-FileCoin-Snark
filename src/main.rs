@@ -1,4 +1,3 @@
-use std::env;
 use std::sync::{Arc, Mutex};
 // use actix_web::FromRequest;
 use actix_web::{error, middleware, web};
@@ -6,6 +5,8 @@ use actix_web::{App, HttpRequest, HttpResponse, HttpServer};
 use log::{error, warn};
 // use crate::seal_data::SealCommitPhase2Data;
 use crate::mid::verify::Verify;
+use actix_web::middleware::Condition;
+use clap::Arg;
 use polling::ServState;
 
 mod mid;
@@ -33,8 +34,19 @@ fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    let args: Vec<String> = env::args().collect();
-    let bind_address = &args[1];
+    let m = clap::App::new("Filecoin-webapi")
+        .author("sbw <sbw@sbw.so>")
+        .version("2.0.0")
+        .about("filecoin webapi")
+        .arg(
+            Arg::with_name("listen-addr")
+                .index(1)
+                .takes_value(true)
+                .required(true)
+                .help("listen address"),
+        )
+        .arg(Arg::with_name("no-auth").long("--no-auth").help("disable request auth"))
+        .get_matches();
 
     if std::env::var("RUST_LOG").is_err() {
         if cfg!(debug_assertions) {
@@ -46,17 +58,20 @@ async fn main() -> std::io::Result<()> {
 
     env_logger::init();
     std::fs::create_dir_all("/tmp/upload/")?;
-    let state = Arc::new(Mutex::new(ServState::new()));
 
+    let auth = !m.is_present("no-auth");
+    warn!("Auth enabled: {}", auth);
+    let bind_address = m.value_of("listen-addr").unwrap();
     warn!("Listening: {}", bind_address);
 
+    let state = Arc::new(Mutex::new(ServState::new()));
     let server = HttpServer::new(move || {
         let state = state.clone();
 
         App::new()
-            .app_data(web::Data::new(state))
             .wrap(middleware::Logger::default())
-            .wrap(Verify {})
+            .wrap(Condition::new(auth, Verify {}))
+            .app_data(web::Data::new(state))
             .service(web::resource("/test").route(web::get().to(system::test)))
             .service(web::resource("/sys/test_polling").route(web::post().to(system::test_polling)))
             .service(web::resource("/sys/query_state").route(web::post().to(system::query_state)))
