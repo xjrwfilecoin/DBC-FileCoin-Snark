@@ -7,6 +7,7 @@ use log::{error, warn};
 use crate::mid::verify::Verify;
 use actix_web::middleware::Condition;
 use clap::Arg;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use polling::ServState;
 
 mod mid;
@@ -46,6 +47,18 @@ async fn main() -> std::io::Result<()> {
                 .help("listen address"),
         )
         .arg(Arg::with_name("no-auth").long("--no-auth").help("disable request auth"))
+        .arg(
+            Arg::with_name("cert-chain")
+                .long("--cert-chain")
+                .takes_value(true)
+                .help("certificate chain file"),
+        )
+        .arg(
+            Arg::with_name("private-cert")
+                .long("--private-cert")
+                .takes_value(true)
+                .help("private certificate file"),
+        )
         .get_matches();
 
     if std::env::var("RUST_LOG").is_err() {
@@ -111,6 +124,20 @@ async fn main() -> std::io::Result<()> {
             .service(web::resource("/seal/write_and_preprocess").route(web::post().to(seal::write_and_preprocess)))
     });
 
-    let server = server.bind(bind_address);
-    server.expect("Bind failed").run().await
+    let server = if let Some(cert) = m.value_of("private-cert") {
+        warn!("use private-cert file {}", cert);
+
+        let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+        builder.set_private_key_file(cert, SslFiletype::PEM).unwrap();
+        if let Some(chain) = m.value_of("cert-chain") {
+            warn!("use cert-chain file {}", chain);
+            builder.set_certificate_chain_file(chain).unwrap();
+        }
+
+        server.bind_openssl(bind_address, builder)
+    } else {
+        server.bind(bind_address)
+    };
+
+    server?.run().await
 }

@@ -19,7 +19,7 @@ path = "src/main.rs"
 
 [dependencies]
 actix-rt = "*"
-actix-web = "^3"
+actix-web = { version = "^3", features = ["openssl"] }
 actix-multipart = "^0.3"
 actix-service = "*"
 futures = "*"
@@ -34,6 +34,7 @@ lazy_static = "*"
 libc = "*"
 bytes = "*"
 clap = "*"
+openssl = "*"
 
 [dependencies.filecoin-proofs-api]
 package = "filecoin-proofs-api"
