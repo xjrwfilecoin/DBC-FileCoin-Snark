@@ -73,6 +73,13 @@ impl ServState {
         *self.config.job_limits.get(name.as_ref()).unwrap_or(&u64::max_value())
     }
 
+    pub fn job_available<S: AsRef<str>>(&self, name: S) -> bool {
+        let num = self.job_num(name.as_ref());
+        let limit = self.job_limit(name.as_ref());
+
+        num < limit
+    }
+
     pub fn enqueue(&mut self, prop: WorkerProp) -> PollingState {
         let token = WORKER_TOKEN.fetch_add(1, Ordering::SeqCst);
         self.workers.insert(token, prop);

@@ -95,6 +95,10 @@ pub async fn seal_commit_phase2(
     state: Data<Arc<Mutex<ServState>>>,
     mut payload: Payload,
 ) -> Result<HttpResponse, Error> {
+    if !state.lock().unwrap().job_available("C2") {
+        return Ok(HttpResponse::TooManyRequests().finish());
+    }
+
     let mut bytes = BytesMut::new();
     while let Some(item) = payload.next().await {
         bytes.extend_from_slice(&item?);
