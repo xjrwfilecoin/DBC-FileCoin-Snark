@@ -86,7 +86,7 @@ pub async fn seal_commit_phase1(state: Data<Arc<Mutex<ServState>>>, data: Json<S
         }
     });
 
-    let prop = WorkerProp::new(handle, rx);
+    let prop = WorkerProp::new("C1".to_string(), handle, rx);
     let response = state.lock().unwrap().enqueue(prop);
     HttpResponse::Ok().json(response)
 }
@@ -114,7 +114,7 @@ pub async fn seal_commit_phase2(
         }
     });
 
-    let prop = WorkerProp::new(handle, rx);
+    let prop = WorkerProp::new("C2".to_string(), handle, rx);
     let response = state.lock().unwrap().enqueue(prop);
     Ok(HttpResponse::Ok().json(response))
 }

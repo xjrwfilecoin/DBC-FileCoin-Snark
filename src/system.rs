@@ -14,7 +14,6 @@ use std::time::Duration;
 
 #[derive(Serialize)]
 struct ServerLoad {
-    phase: String,
     limit: u64,
     current: u64,
 }
@@ -36,19 +35,17 @@ pub async fn test_polling(state: Data<Arc<Mutex<ServState>>>) -> HttpResponse {
         tx.send(json!(r)).unwrap();
     });
 
-    let prop = WorkerProp::new(handle, rx);
+    let prop = WorkerProp::new("Test".to_string(), handle, rx);
     let response = state.lock().unwrap().enqueue(prop);
     HttpResponse::Ok().json(response)
 }
 
-pub async fn query_load(phase: Json<String>) -> HttpResponse {
+pub async fn query_load(state: Data<Arc<Mutex<ServState>>>, phase: Json<String>) -> HttpResponse {
     trace!("query_load: {:?}", phase);
 
-    let data = ServerLoad {
-        phase: "C2".to_string(),
-        limit: 5,
-        current: 3,
-    };
+    let current = state.lock().unwrap().job_num(&phase.0);
+
+    let data = ServerLoad { limit: 5, current };
 
     HttpResponse::Ok().json(data)
 }

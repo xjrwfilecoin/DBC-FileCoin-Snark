@@ -32,13 +32,14 @@ pub enum PollingError {
 }
 
 pub struct WorkerProp {
+    name: String,
     handle: JoinHandle<()>,
     receiver: Receiver<Value>,
 }
 
 impl WorkerProp {
-    pub fn new(handle: JoinHandle<()>, receiver: Receiver<Value>) -> Self {
-        Self { handle, receiver }
+    pub fn new(name: String, handle: JoinHandle<()>, receiver: Receiver<Value>) -> Self {
+        Self { name, handle, receiver }
     }
 }
 
@@ -54,6 +55,13 @@ impl ServState {
         Self {
             workers: HashMap::new(),
         }
+    }
+
+    pub fn job_num<S: AsRef<str>>(&self, name: S) -> u64 {
+        self.workers
+            .iter()
+            .filter(|(_, prop)| prop.name == name.as_ref())
+            .count() as u64
     }
 
     pub fn enqueue(&mut self, prop: WorkerProp) -> PollingState {
