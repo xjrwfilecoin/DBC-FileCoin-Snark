@@ -31,10 +31,19 @@ pub enum PollingError {
     Disconnected,
 }
 
-type WorkerReceiver = Receiver<Value>;
+pub struct WorkerProp {
+    handle: JoinHandle<()>,
+    receiver: Receiver<Value>,
+}
+
+impl WorkerProp {
+    pub fn new(handle: JoinHandle<()>, receiver: Receiver<Value>) -> Self {
+        Self { handle, receiver }
+    }
+}
 
 pub struct ServState {
-    workers: HashMap<u64, (JoinHandle<()>, WorkerReceiver)>,
+    workers: HashMap<u64, WorkerProp>,
 }
 
 impl ServState {
@@ -47,9 +56,9 @@ impl ServState {
         }
     }
 
-    pub fn enqueue(&mut self, handle: JoinHandle<()>, rx: WorkerReceiver) -> PollingState {
+    pub fn enqueue(&mut self, prop: WorkerProp) -> PollingState {
         let token = WORKER_TOKEN.fetch_add(1, Ordering::SeqCst);
-        self.workers.insert(token, (handle, rx));
+        self.workers.insert(token, prop);
 
         PollingState::Started(token)
     }
@@ -58,7 +67,7 @@ impl ServState {
         let state = self
             .workers
             .get(&token)
-            .map(|x| match x.1.try_recv() {
+            .map(|x| match x.receiver.try_recv() {
                 Ok(r) => PollingState::Done(r),
                 Err(TryRecvError::Empty) => PollingState::Pending,
                 Err(TryRecvError::Disconnected) => PollingState::Error(PollingError::Disconnected),
@@ -77,9 +86,9 @@ impl ServState {
     }
 
     pub fn remove(&mut self, token: u64) -> PollingState {
-        if let Some((handle, _rx)) = self.workers.remove(&token) {
+        if let Some(prop) = self.workers.remove(&token) {
             debug!("Job {} force removed", token);
-            let pthread_t = handle.into_pthread_t();
+            let pthread_t = prop.handle.into_pthread_t();
 
             unsafe {
                 pthread_cancel(pthread_t);

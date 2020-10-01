@@ -36,7 +36,8 @@ pub async fn test_polling(state: Data<Arc<Mutex<ServState>>>) -> HttpResponse {
         tx.send(json!(r)).unwrap();
     });
 
-    let response = state.lock().unwrap().enqueue(handle, rx);
+    let prop = WorkerProp::new(handle, rx);
+    let response = state.lock().unwrap().enqueue(prop);
     HttpResponse::Ok().json(response)
 }
 
