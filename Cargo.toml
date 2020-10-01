@@ -29,6 +29,7 @@ log = "*"
 env_logger = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
+serde_yaml = "*"
 mime = "*"
 lazy_static = "*"
 libc = "*"

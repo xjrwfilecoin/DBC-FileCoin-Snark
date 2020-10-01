@@ -2,14 +2,16 @@ use std::sync::{Arc, Mutex};
 // use actix_web::FromRequest;
 use actix_web::{error, middleware, web};
 use actix_web::{App, HttpRequest, HttpResponse, HttpServer};
-use log::{error, warn};
+use log::*;
 // use crate::seal_data::SealCommitPhase2Data;
+use crate::config::Config;
 use crate::mid::verify::Verify;
 use actix_web::middleware::Condition;
 use clap::Arg;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use polling::ServState;
 
+mod config;
 mod mid;
 mod polling;
 pub mod post;
@@ -40,24 +42,13 @@ async fn main() -> std::io::Result<()> {
         .version("2.0.0")
         .about("filecoin webapi")
         .arg(
-            Arg::with_name("listen-addr")
-                .index(1)
+            Arg::with_name("config")
+                .short("-c")
+                .long("--config")
+                .help("Config file location")
                 .takes_value(true)
                 .required(true)
-                .help("listen address"),
-        )
-        .arg(Arg::with_name("no-auth").long("--no-auth").help("disable request auth"))
-        .arg(
-            Arg::with_name("cert-chain")
-                .long("--cert-chain")
-                .takes_value(true)
-                .help("certificate chain file"),
-        )
-        .arg(
-            Arg::with_name("private-cert")
-                .long("--private-cert")
-                .takes_value(true)
-                .help("private certificate file"),
+                .default_value("/etc/filecoin-webapi.conf"),
         )
         .get_matches();
 
@@ -72,12 +63,16 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     std::fs::create_dir_all("/tmp/upload/")?;
 
-    let auth = !m.is_present("no-auth");
-    warn!("Auth enabled: {}", auth);
-    let bind_address = m.value_of("listen-addr").unwrap();
-    warn!("Listening: {}", bind_address);
+    let config_file = m.value_of("config").unwrap();
+    let f = std::fs::File::open(config_file).unwrap();
+    let config: Config = serde_yaml::from_reader(f).unwrap();
+    warn!("config {:?}", config);
 
-    let state = Arc::new(Mutex::new(ServState::new()));
+    let state = Arc::new(Mutex::new(ServState::new(config.allow_tokens.clone())));
+    let bind_addr = config.listen_addr.clone();
+    let auth = config.auth;
+    let private_cert = config.private_cert.clone();
+    let cert_chain = config.cert_chain.clone();
     let server = HttpServer::new(move || {
         let state = state.clone();
 
@@ -124,19 +119,19 @@ async fn main() -> std::io::Result<()> {
             .service(web::resource("/seal/write_and_preprocess").route(web::post().to(seal::write_and_preprocess)))
     });
 
-    let server = if let Some(cert) = m.value_of("private-cert") {
+    let server = if let Some(cert) = private_cert {
         warn!("use private-cert file {}", cert);
 
         let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
         builder.set_private_key_file(cert, SslFiletype::PEM).unwrap();
-        if let Some(chain) = m.value_of("cert-chain") {
+        if let Some(chain) = cert_chain {
             warn!("use cert-chain file {}", chain);
             builder.set_certificate_chain_file(chain).unwrap();
         }
 
-        server.bind_openssl(bind_address, builder)
+        server.bind_openssl(bind_addr, builder)
     } else {
-        server.bind(bind_address)
+        server.bind(bind_addr)
     };
 
     server?.run().await

@@ -3,7 +3,7 @@ use actix_multipart::Multipart;
 use actix_web::web::{self, Data, Json};
 use actix_web::{Error, HttpResponse};
 use futures::stream::{StreamExt, TryStreamExt};
-use log::trace;
+use log::*;
 use serde::Serialize;
 use serde_json::json;
 use std::io::Write;
@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct ServerLoad {
     limit: u64,
     current: u64,
@@ -46,6 +46,7 @@ pub async fn query_load(state: Data<Arc<Mutex<ServState>>>, phase: Json<String>)
     let current = state.lock().unwrap().job_num(&phase.0);
 
     let data = ServerLoad { limit: 5, current };
+    debug!("current load for {}, {:?}", &phase.0, data);
 
     HttpResponse::Ok().json(data)
 }

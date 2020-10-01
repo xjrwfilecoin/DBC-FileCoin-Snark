@@ -1,9 +1,10 @@
+use crate::polling::ServState;
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
-use actix_web::http::HeaderValue;
+use actix_web::web::Data;
 use actix_web::{Error, HttpResponse};
 use futures::future::{ok, Either, Ready};
 use futures::task::{Context, Poll};
-use log::*;
+use std::sync::{Arc, Mutex};
 
 pub struct Verify;
 
@@ -45,11 +46,13 @@ where
     fn call(&mut self, req: Self::Request) -> Self::Future {
         let allow = "/test";
         let path = req.path();
+        let data = req.app_data::<Data<Arc<Mutex<ServState>>>>().unwrap();
 
         let token = req
             .headers()
             .get("Authorization")
-            .map(|x| check_token(x))
+            .and_then(|x| x.to_str().ok())
+            .map(|x| data.lock().unwrap().verify_token(x))
             .unwrap_or(false);
 
         if token || path == allow {
@@ -58,10 +61,4 @@ where
             Either::Right(ok(req.into_response(HttpResponse::Forbidden().finish().into_body())))
         }
     }
-}
-
-fn check_token(token: &HeaderValue) -> bool {
-    trace!("checking token {:?}", token.as_bytes());
-
-    true
 }

@@ -45,16 +45,22 @@ impl WorkerProp {
 
 pub struct ServState {
     workers: HashMap<u64, WorkerProp>,
+    tokens: Vec<String>,
 }
 
 impl ServState {
-    pub fn new() -> Self {
+    pub fn new(tokens: Vec<String>) -> Self {
         // NOTE: ensure ServState is init only once
         assert_eq!(WORKER_INIT.swap(true, Ordering::SeqCst), false);
 
         Self {
             workers: HashMap::new(),
+            tokens,
         }
+    }
+
+    pub fn verify_token<S: AsRef<str>>(&self, token: S) -> bool {
+        self.tokens.contains(&token.as_ref().to_owned())
     }
 
     pub fn job_num<S: AsRef<str>>(&self, name: S) -> u64 {
