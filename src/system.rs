@@ -43,9 +43,15 @@ pub async fn test_polling(state: Data<Arc<Mutex<ServState>>>) -> HttpResponse {
 pub async fn query_load(state: Data<Arc<Mutex<ServState>>>, phase: Json<String>) -> HttpResponse {
     trace!("query_load: {:?}", phase);
 
-    let current = state.lock().unwrap().job_num(&phase.0);
+    let data = {
+        let state = state.lock().unwrap();
 
-    let data = ServerLoad { limit: 5, current };
+        ServerLoad {
+            limit: state.job_limit(&phase.0),
+            current: state.job_num(&phase.0),
+        }
+    };
+
     debug!("current load for {}, {:?}", &phase.0, data);
 
     HttpResponse::Ok().json(data)

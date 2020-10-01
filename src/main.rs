@@ -68,7 +68,7 @@ async fn main() -> std::io::Result<()> {
     let config: Config = serde_yaml::from_reader(f).unwrap();
     warn!("config {:?}", config);
 
-    let state = Arc::new(Mutex::new(ServState::new(config.allow_tokens.clone())));
+    let state = Arc::new(Mutex::new(ServState::new(config.clone())));
     let bind_addr = config.listen_addr.clone();
     let auth = config.auth;
     let private_cert = config.private_cert.clone();

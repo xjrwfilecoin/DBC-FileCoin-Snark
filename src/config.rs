@@ -1,17 +1,12 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct JobLimit {
-    pub name: String,
-    pub limit: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub auth: bool,
     pub listen_addr: String,
     pub private_cert: Option<String>,
     pub cert_chain: Option<String>,
-    pub job_limits: Vec<JobLimit>,
+    pub job_limits: HashMap<String, u64>,
     pub allow_tokens: Vec<String>,
 }
