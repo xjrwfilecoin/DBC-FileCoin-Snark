@@ -6,10 +6,10 @@ use log::*;
 // use crate::seal_data::SealCommitPhase2Data;
 use crate::config::Config;
 use crate::mid::verify::Verify;
+use crate::system::ServState;
 use actix_web::middleware::Condition;
 use clap::Arg;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-use polling::ServState;
 
 mod config;
 mod mid;

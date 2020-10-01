@@ -1,4 +1,4 @@
-use crate::polling::ServState;
+use crate::system::ServState;
 use actix_web::dev::{Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::web::Data;
 use actix_web::{Error, HttpResponse};
