@@ -27,6 +27,7 @@ futures-core = "*"
 futures-util = "*"
 log = "*"
 env_logger = "*"
+bellperson = { version = "0.12.0", default-features = false, features = ["gpu"] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 serde_yaml = "*"
@@ -39,4 +40,10 @@ openssl = "*"
 
 [dependencies.filecoin-proofs-api]
 package = "filecoin-proofs-api"
-version = "5.1.1"
+version = "5.4.1"
+default-features = false
+
+[features]
+default = ["pairing"]
+pairing = ["filecoin-proofs-api/pairing", "bellperson/pairing"]
+blst = ["filecoin-proofs-api/blst", "bellperson/blst"]
