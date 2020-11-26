@@ -19,21 +19,32 @@ path = "src/main.rs"
 
 [dependencies]
 actix-rt = "*"
-actix-web = "^2"
-actix-multipart = "*"
-futures = "^0.3"
+actix-web = { version = "^3", features = ["openssl"] }
+actix-multipart = "^0.3"
+actix-service = "*"
+futures = "*"
 futures-core = "*"
 futures-util = "*"
 log = "*"
-fil_logger = "*"
-serde = { version = "1.0.104", features = ["derive"] }
+env_logger = "*"
+bellperson = { version = "0.12", default-features = false, features = ["gpu"], path="../rust-fil-local/bellperson"}
+serde = { version = "*", features = ["derive"] }
 serde_json = "*"
+serde_yaml = "*"
 mime = "*"
-lazy_static = "^1.4"
+lazy_static = "*"
 libc = "*"
 bytes = "*"
+clap = "*"
+openssl = "*"
 
 [dependencies.filecoin-proofs-api]
 #package = "filecoin-proofs-api"
-version = "5.1.0"
-path ="../rust-filecoin-proofs-api"
+version = "5.4.0"
+default-features = false
+path="../rust-filecoin-proofs-api"
+
+[features]
+default = ["pairing"]
+pairing = ["filecoin-proofs-api/pairing", "bellperson/pairing"]
+blst = ["filecoin-proofs-api/blst", "bellperson/blst"]

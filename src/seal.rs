@@ -1,10 +1,6 @@
-use std::fs::OpenOptions;
-use std::io;
-use std::path::Path;
-use std::sync::mpsc::channel;
-use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
-
+use crate::seal_data::*;
+use crate::system::{ServState, WorkerProp};
+use crate::types::WebPieceInfo;
 use actix_web::web::{Data, Json, Payload};
 use actix_web::{Error, HttpRequest, HttpResponse};
 use bytes::BytesMut;
@@ -12,10 +8,12 @@ use filecoin_proofs_api::{seal, PieceInfo};
 use futures_util::StreamExt;
 use log::{error, trace};
 use serde_json::json;
-
-use crate::polling::*;
-use crate::seal_data::*;
-use crate::types::WebPieceInfo;
+use std::fs::OpenOptions;
+use std::io;
+use std::path::Path;
+use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 
 pub async fn clear_cache(_req: HttpRequest, data: Json<ClearCacheData>) -> HttpResponse {
     trace!("clear_cache");
@@ -86,7 +84,8 @@ pub async fn seal_commit_phase1(state: Data<Arc<Mutex<ServState>>>, data: Json<S
         }
     });
 
-    let response = state.lock().unwrap().enqueue(handle, rx);
+    let prop = WorkerProp::new("C1".to_string(), handle, rx);
+    let response = state.lock().unwrap().enqueue(prop);
     HttpResponse::Ok().json(response)
 }
 
@@ -94,25 +93,31 @@ pub async fn seal_commit_phase2(
     state: Data<Arc<Mutex<ServState>>>,
     mut payload: Payload,
 ) -> Result<HttpResponse, Error> {
+    if !state.lock().unwrap().job_available("C2") {
+        return Ok(HttpResponse::TooManyRequests().finish());
+    }
+
     let mut bytes = BytesMut::new();
     while let Some(item) = payload.next().await {
         bytes.extend_from_slice(&item?);
     }
 
+    let data_len = bytes.len();
     let data: SealCommitPhase2Data = serde_json::from_slice(bytes.as_ref())?;
-    trace!("seal_commit_phase2: {:?}", data);
+    trace!("seal_commit_phase2, data len: {}", data_len);
 
     let (tx, rx) = channel();
     let handle: JoinHandle<()> = thread::spawn(move || {
         let r = seal::seal_commit_phase2(data.phase1_output.clone(), data.prover_id, data.sector_id);
 
-        trace!("seal_commit_phase2 finished: {:?}", r);
+        trace!("seal_commit_phase2 finished");
         if let Err(e) = tx.send(json!(r.map_err(|e| format!("{:?}", e)))) {
-            error!("{:?}", e);
+            error!("seal_commit_phase2 error: {:?}", e);
         }
     });
 
-    let response = state.lock().unwrap().enqueue(handle, rx);
+    let prop = WorkerProp::new("C2".to_string(), handle, rx);
+    let response = state.lock().unwrap().enqueue(prop);
     Ok(HttpResponse::Ok().json(response))
 }
 

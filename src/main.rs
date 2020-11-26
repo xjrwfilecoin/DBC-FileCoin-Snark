@@ -1,14 +1,18 @@
-use std::env;
 use std::sync::{Arc, Mutex};
-
 // use actix_web::FromRequest;
 use actix_web::{error, middleware, web};
 use actix_web::{App, HttpRequest, HttpResponse, HttpServer};
-use log::{error, warn};
-
+use log::*;
 // use crate::seal_data::SealCommitPhase2Data;
-use polling::ServState;
+use crate::config::Config;
+use crate::mid::verify::Verify;
+use crate::system::ServState;
+use actix_web::middleware::Condition;
+use clap::Arg;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 
+mod config;
+mod mid;
 mod polling;
 pub mod post;
 pub mod post_data;
@@ -33,32 +37,53 @@ fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    let args: Vec<String> = env::args().collect();
-    let bind_address = &args[1];
+    let m = clap::App::new("Filecoin-webapi")
+        .author("sbw <sbw@sbw.so>")
+        .version("2.0.0")
+        .about("filecoin webapi")
+        .arg(
+            Arg::with_name("config")
+                .short("-c")
+                .long("--config")
+                .help("Config file location")
+                .takes_value(true)
+                .required(true)
+                .default_value("/etc/filecoin-webapi.conf"),
+        )
+        .get_matches();
 
     if std::env::var("RUST_LOG").is_err() {
         if cfg!(debug_assertions) {
-            std::env::set_var("RUST_LOG", "filecoin_webapi=trace,actix_web=info");
+            std::env::set_var("RUST_LOG", "filecoin_webapi=trace,actix_web=debug");
         } else {
-            std::env::set_var("RUST_LOG", "filecoin_webapi=info,actix_web=warn");
+            std::env::set_var("RUST_LOG", "filecoin_webapi=debug,actix_web=info");
         }
     }
 
-    fil_logger::init();
+    env_logger::init();
     std::fs::create_dir_all("/tmp/upload/")?;
-    let state = Arc::new(Mutex::new(ServState::new()));
 
-    warn!("Listening: {}", bind_address);
+    let config_file = m.value_of("config").unwrap();
+    let f = std::fs::File::open(config_file).unwrap();
+    let config: Config = serde_yaml::from_reader(f).unwrap();
+    warn!("config {:?}", config);
 
-    HttpServer::new(move || {
+    let state = Arc::new(Mutex::new(ServState::new(config.clone())));
+    let bind_addr = config.listen_addr.clone();
+    let auth = config.auth;
+    let private_cert = config.private_cert.clone();
+    let cert_chain = config.cert_chain.clone();
+    let server = HttpServer::new(move || {
         let state = state.clone();
 
         App::new()
-            .app_data(web::Data::new(state))
             .wrap(middleware::Logger::default())
+            .wrap(Condition::new(auth, Verify {}))
+            .app_data(web::Data::new(state))
             .service(web::resource("/test").route(web::get().to(system::test)))
             .service(web::resource("/sys/test_polling").route(web::post().to(system::test_polling)))
             .service(web::resource("/sys/query_state").route(web::post().to(system::query_state)))
+            .service(web::resource("/sys/query_load").route(web::post().to(system::query_load)))
             .service(web::resource("/sys/remove_job").route(web::post().to(system::remove_job)))
             .service(web::resource("/sys/upload_file").route(web::post().to(system::upload_file)))
             .service(web::resource("/sys/upload_test").route(web::get().to(system::upload_test)))
@@ -92,9 +117,22 @@ async fn main() -> std::io::Result<()> {
             )
             .service(web::resource("/seal/add_piece").route(web::post().to(seal::add_piece)))
             .service(web::resource("/seal/write_and_preprocess").route(web::post().to(seal::write_and_preprocess)))
-    })
-    .bind(bind_address)
-    .expect("Bind failed")
-    .run()
-    .await
+    });
+
+    let server = if let Some(cert) = private_cert {
+        warn!("use private-cert file {}", cert);
+
+        let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+        builder.set_private_key_file(cert, SslFiletype::PEM).unwrap();
+        if let Some(chain) = cert_chain {
+            warn!("use cert-chain file {}", chain);
+            builder.set_certificate_chain_file(chain).unwrap();
+        }
+
+        server.bind_openssl(bind_addr, builder)
+    } else {
+        server.bind(bind_addr)
+    };
+
+    server?.run().await
 }
